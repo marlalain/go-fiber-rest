@@ -5,6 +5,7 @@ import "go-fiber-rest/pkg/entities"
 type Service interface {
 	Insert(product *entities.Product) (*entities.Product, error)
 	Fetch() (*[]entities.Product, error)
+	FindOne(ID string) (*entities.Product, error)
 	Update(product *entities.Product) (*entities.Product, error)
 	Remove(ID string) error
 }
@@ -17,6 +18,10 @@ func NewService(r Repository) Service {
 	return &service{
 		repository: r,
 	}
+}
+
+func (s service) FindOne(ID string) (*entities.Product, error) {
+	return s.repository.FindOne(ID)
 }
 
 func (s service) Insert(product *entities.Product) (*entities.Product, error) {

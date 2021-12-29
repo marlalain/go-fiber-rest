@@ -11,6 +11,7 @@ import (
 type Repository interface {
 	Create(product *entities.Product) (*entities.Product, error)
 	Read() (*[]entities.Product, error)
+	FindOne(ID string) (*entities.Product, error)
 	Update(product *entities.Product) (*entities.Product, error)
 	Delete(ID string) error
 }
@@ -28,6 +29,22 @@ func NewRepo(collection *mongo.Collection) Repository {
 func (r repository) Create(product *entities.Product) (*entities.Product, error) {
 	product.ID = primitive.NewObjectID()
 	_, err := r.Collection.InsertOne(context.Background(), product)
+	if err != nil {
+		return nil, err
+	}
+
+	return product, nil
+}
+
+func (r repository) FindOne(ID string) (*entities.Product, error) {
+	var product *entities.Product
+	productID, err := primitive.ObjectIDFromHex(ID)
+	if err != nil {
+		return nil, err
+	}
+
+	one := r.Collection.FindOne(context.Background(), bson.M{"_id": productID})
+	err = one.Decode(&product)
 	if err != nil {
 		return nil, err
 	}

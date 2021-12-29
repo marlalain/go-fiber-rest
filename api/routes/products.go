@@ -4,40 +4,44 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"go-fiber-rest/pkg/entities"
 	"go-fiber-rest/pkg/product"
+	"net/http"
 )
 
 func ProductRouter(app fiber.Router, service product.Service) {
 	app.Get("/products", getProducts(service))
+	app.Get("/products/:id", getProduct(service))
 	app.Post("/products", postProduct(service))
 	app.Put("/products", putProduct(service))
-	app.Delete("/products", deleteProduct(service))
+	app.Delete("/products/:id", deleteProduct(service))
+}
+
+func getProduct(service product.Service) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		productID := c.Params("id")
+		prod, err := service.FindOne(productID)
+		if err != nil {
+			return err
+		}
+
+		err = c.JSON(prod)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
 }
 
 func deleteProduct(service product.Service) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		var result entities.DeleteRequest
-		err := c.BodyParser(&result)
-		productID := result.ID
-
+		productID := c.Params("id")
+		err := service.Remove(productID)
 		if err != nil {
-			_ = c.JSON(&fiber.Map{
-				"status": false,
-				"error":  err,
-			})
+			return err
 		}
 
-		dberr := service.Remove(productID)
-		if dberr != nil {
-			_ = c.JSON(&fiber.Map{
-				"status": false,
-				"error":  err,
-			})
-		}
-
-		return c.JSON(&fiber.Map{
-			"status":  false,
-			"message": "updated",
-		})
+		c.Status(http.StatusAccepted)
+		return nil
 	}
 }
 
@@ -53,11 +57,13 @@ func putProduct(service product.Service) fiber.Handler {
 			})
 		}
 
-		update, dberr := service.Update(&result)
-		return c.JSON(&fiber.Map{
-			"status": update,
-			"error":  dberr,
-		})
+		_, dberr := service.Update(&result)
+		if dberr != nil {
+			return c.SendString(dberr.Error())
+		}
+
+		c.Status(http.StatusCreated)
+		return nil
 	}
 }
 
@@ -73,31 +79,24 @@ func postProduct(service product.Service) fiber.Handler {
 			})
 		}
 
-		insert, dberr := service.Insert(&result)
-		return c.JSON(&fiber.Map{
-			"status": insert,
-			"error":  dberr,
-		})
+		_, dberr := service.Insert(&result)
+		if dberr != nil {
+			return c.SendString(dberr.Error())
+		}
+
+		c.Status(http.StatusCreated)
+		return nil
 	}
 }
 
 func getProducts(service product.Service) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		fetched, err := service.Fetch()
-		var result fiber.Map
 
 		if err != nil {
-			result = fiber.Map{
-				"status": false,
-				"error":  err.Error(),
-			}
-		} else {
-			result = fiber.Map{
-				"status":   true,
-				"products": fetched,
-			}
+			return err
 		}
 
-		return c.JSON(&result)
+		return c.JSON(&fetched)
 	}
 }
